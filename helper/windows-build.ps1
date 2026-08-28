@@ -239,18 +239,18 @@ try {
     Write-Host "Copying artifacts..."
 
     Copy-Item `
-        $Apk.FullName
-    (Join-Path $ArtifactDirectory "bakers-archive.apk") `
+        $Apk.FullName `
+        (Join-Path $ArtifactDirectory "bakers-archive.apk") `
         -Force
 
     Copy-Item `
-        $Aab.FullName
-    (Join-Path $ArtifactDirectory "bakers-archive.aab") `
+        $Aab.FullName `
+        (Join-Path $ArtifactDirectory "bakers-archive.aab") `
         -Force
 
     Copy-Item `
-        $Msix.FullName
-    (Join-Path $ArtifactDirectory "bakers-archive.msix") `
+        $Msix.FullName `
+        (Join-Path $ArtifactDirectory "bakers-archive.msix") `
         -Force
 
     Write-Host ""
