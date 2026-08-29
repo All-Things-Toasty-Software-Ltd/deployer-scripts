@@ -12,17 +12,21 @@ WINDOWS_SCRIPT="$SCRIPT_DIR/windows-build.ps1"
 
 OWNER="$1"
 REPOSITORY="$2"
+ARTIFACT_DIR="$3"
 
 if [[ -z "$OWNER" || -z "$REPOSITORY" ]]; then
     echo "Usage: $0 <owner> <repository>"
     exit 1
 fi
 
+if [[ ! -d "$ARTIFACT_DIR" ]]; then
+    echo "ERROR: Artifact directory does not exist:"
+    echo "  $ARTIFACT_DIR"
+    exit 1
+fi
+
 REMOTE_ROOT="C:/ToastyBuild/_incoming"
 REMOTE_SCRIPT="$REMOTE_ROOT/windows-build.ps1"
-
-TEMP_DIR="$(mktemp -d /tmp/toasty-build.XXXXXX)"
-ARTIFACT_DIR="$TEMP_DIR/artifacts"
 
 mkdir -p "$ARTIFACT_DIR"
 
