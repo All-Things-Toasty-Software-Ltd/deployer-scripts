@@ -63,10 +63,6 @@ git reset --hard "origin/$REF" || git reset --hard "$REF"
 echo "Syncing module: $MODULE"
 rsync -a --delete "$MODULE/" "/opt/custom-addons/$MODULE/"
 
-echo "Updating module in Odoo database: $DATABASE"
-# Triggers Odoo migration/update process headlessly before service restart
-odoo -c /etc/odoo/odoo.conf -d "$DATABASE" -u "$MODULE" --stop-after-init || true
-
 echo "Restarting Odoo service: odoo-$DATABASE"
 systemctl restart "odoo-$DATABASE"
 
