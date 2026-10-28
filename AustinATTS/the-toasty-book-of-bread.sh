@@ -33,7 +33,7 @@ echo "========================================"
 # Clone or Update Repository
 if [[ ! -d "$TARGET_DIR" ]]; then
     echo "Directory does not exist. Calling clone helper..."
-    "$HELPER_DIR/clone.sh" "$OWNER" "$REPOSITORY" "$TARGET_DIR"
+    "$HELPER_DIR/clone-repository.sh" "$OWNER" "$REPOSITORY" "$TARGET_DIR"
 
     cd "$TARGET_DIR"
     git checkout "$REF"
