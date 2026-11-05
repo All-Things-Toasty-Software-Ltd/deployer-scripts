@@ -11,6 +11,8 @@ SCOPES = [
     "https://www.googleapis.com/auth/androidpublisher"
 ]
 
+MAX_RELEASE_NOTES_LENGTH = 500
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -24,6 +26,30 @@ def main():
 
     args = parser.parse_args()
 
+    with open(args.release_notes, "r", encoding="utf-8") as f:
+        notes = f.read().strip()
+
+    if not notes:
+        print("ERROR: release notes are empty.", file=sys.stderr)
+        return 1
+
+    if len(notes) > MAX_RELEASE_NOTES_LENGTH:
+        print(
+            f"ERROR: release notes are {len(notes)} characters; "
+            f"Google Play allows at most {MAX_RELEASE_NOTES_LENGTH}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("========================================")
+    print("Google Play Release")
+    print("========================================")
+    print(f"Package:       {args.package}")
+    print(f"Version:       {args.version_name}")
+    print(f"Track:         {args.track}")
+    print(f"Release notes: {len(notes)} / {MAX_RELEASE_NOTES_LENGTH} characters")
+    print("========================================")
+
     credentials = service_account.Credentials.from_service_account_file(
         args.service_account,
         scopes=SCOPES,
@@ -34,14 +60,6 @@ def main():
         "v3",
         credentials=credentials,
     )
-
-    print("========================================")
-    print("Google Play Release")
-    print("========================================")
-    print(f"Package: {args.package}")
-    print(f"Version: {args.version_name}")
-    print(f"Track:   {args.track}")
-    print("========================================")
 
     # Create edit.
     edit = service.edits().insert(
@@ -71,10 +89,6 @@ def main():
     version_code = bundle["versionCode"]
 
     print(f"Uploaded AAB, versionCode={version_code}")
-
-    # Read release notes.
-    with open(args.release_notes, "r", encoding="utf-8") as f:
-        notes = f.read().strip()
 
     release = {
         "versionCodes": [version_code],
@@ -107,11 +121,12 @@ def main():
 
     print("")
     print("Google Play release created successfully.")
+    return 0
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except Exception as exc:
         print(f"ERROR: Google Play release failed: {exc}", file=sys.stderr)
         sys.exit(1)
