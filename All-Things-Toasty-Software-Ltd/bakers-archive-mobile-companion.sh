@@ -12,9 +12,10 @@ SECRETS_DIR="/opt/toasty-deployer/secrets"
 
 OWNER="All-Things-Toasty-Software-Ltd"
 REPOSITORY="bakers-archive-mobile-companion"
+GITLAB_PROJECT="${GITLAB_PROJECT:-toasty-software/bakers-archive-mobile-companion}"
 
-ANDROID_ENV="$SECRETS_DIR/$REPOSITORY.env"
-MSSTORE_ENV="$SECRETS_DIR/msstore/msstore.env"
+ANDROID_ENV="$SECRETS_DIR/android-release.env"
+GITLAB_ENV="$SECRETS_DIR/gitlab.env"
 
 FORCE_RELEASE=false
 
@@ -51,6 +52,8 @@ echo "========================================"
 echo "Toasty Build"
 echo "========================================"
 echo "Repository: $OWNER/$REPOSITORY"
+echo "Platform:   Linux"
+echo "Releases:   GitHub, GitLab, Google Play"
 echo "========================================"
 
 # Clone repository
@@ -65,16 +68,11 @@ echo "Cloning repository..."
 
 # Build
 
-# The Windows helper chooses between the Flutter and legacy Gradle pipelines from the
-# repository contents, and writes bakers-archive.apk, bakers-archive.aab and
-# bakers-archive.msix into the artifact directory.
-
 echo ""
-echo "Building application..."
+echo "Building Android application..."
 
-"$HELPER_DIR/windows-build.sh" \
-    "$OWNER" \
-    "$REPOSITORY" \
+"$HELPER_DIR/android-build.sh" \
+    "$REPOSITORY_DIR" \
     "$ARTIFACT_DIR"
 
 # Verify artifacts
@@ -86,8 +84,7 @@ echo "========================================"
 
 for FILE in \
     "bakers-archive.apk" \
-    "bakers-archive.aab" \
-    "bakers-archive.msix"
+    "bakers-archive.aab"
 do
     if [[ ! -f "$ARTIFACT_DIR/$FILE" ]]; then
         echo "ERROR: Missing artifact:"
@@ -173,6 +170,12 @@ if [[ ! -f "$ANDROID_ENV" ]]; then
     exit 1
 fi
 
+if [[ ! -f "$GITLAB_ENV" ]]; then
+    echo "ERROR: GitLab environment file does not exist:"
+    echo "  $GITLAB_ENV"
+    exit 1
+fi
+
 source "$ANDROID_ENV"
 
 : "${PLAY_SERVICE_ACCOUNT:?PLAY_SERVICE_ACCOUNT is not set}"
@@ -190,8 +193,19 @@ echo "Creating GitHub release..."
     "$VERSION_NAME" \
     "$ARTIFACT_DIR" \
     "$RELEASE_NOTES" \
-    "bakers-archive.apk" \
-    "bakers-archive.msix"
+    "bakers-archive.apk"
+
+# GitLab Release
+
+echo ""
+echo "Creating GitLab release..."
+
+"$HELPER_DIR/gitlab-release.sh" \
+    "$GITLAB_PROJECT" \
+    "$VERSION_NAME" \
+    "$ARTIFACT_DIR" \
+    "$RELEASE_NOTES" \
+    "bakers-archive.apk"
 
 # Google Play
 
@@ -206,15 +220,6 @@ echo "Publishing to Google Play..."
     --version-name "$VERSION_NAME" \
     --release-notes "$RELEASE_NOTES"
 
-# Microsoft Store
-
-echo ""
-echo "Publishing to Microsoft Store..."
-
-"$HELPER_DIR/microsoft-store-release.sh" \
-    "$MSSTORE_ENV" \
-    "$ARTIFACT_DIR/bakers-archive.msix"
-
 # Complete
 
 echo ""
@@ -222,6 +227,7 @@ echo "========================================"
 echo "RELEASE COMPLETE"
 echo "========================================"
 echo "Repository:  $OWNER/$REPOSITORY"
+echo "GitLab:      $GITLAB_PROJECT"
 echo "Version:     $VERSION_NAME"
 echo "VersionCode: $VERSION_CODE"
 echo "========================================"
