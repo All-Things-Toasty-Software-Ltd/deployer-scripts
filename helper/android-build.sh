@@ -86,6 +86,12 @@ if [[ -z "$FLUTTER_VERSION" ]]; then
     exit 1
 fi
 
+# The container is memory-constrained. These system properties take precedence
+# over the developer defaults in android/gradle.properties so the deployment
+# build fits the LXC instead of exhausting it.
+: "${GRADLE_OPTS:=-Dorg.gradle.jvmargs=-Xmx768m -XX:MaxMetaspaceSize=512m -Dorg.gradle.workers.max=1 -Dorg.gradle.daemon=false}"
+export GRADLE_OPTS
+
 # Read the version fields from pubspec.yaml.
 
 VERSION_FIELD="$(
