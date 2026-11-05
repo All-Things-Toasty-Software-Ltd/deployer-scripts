@@ -65,6 +65,10 @@ echo "Cloning repository..."
 
 # Build
 
+# The Windows helper chooses between the Flutter and legacy Gradle pipelines from the
+# repository contents, and writes bakers-archive.apk, bakers-archive.aab and
+# bakers-archive.msix into the artifact directory.
+
 echo ""
 echo "Building application..."
 
