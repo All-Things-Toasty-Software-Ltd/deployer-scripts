@@ -212,7 +212,8 @@ echo "Creating GitLab release..."
 echo ""
 echo "Publishing to Google Play..."
 
-"$HELPER_DIR/google-play-release.py" \
+"${PYTHON_BIN:-python3}" \
+    "$HELPER_DIR/google-play-release.py" \
     --service-account "$PLAY_SERVICE_ACCOUNT" \
     --package "$PLAY_PACKAGE_NAME" \
     --aab "$ARTIFACT_DIR/bakers-archive.aab" \
