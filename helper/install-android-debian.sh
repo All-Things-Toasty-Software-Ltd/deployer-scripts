@@ -42,6 +42,7 @@ apt-get install -y \
     ca-certificates \
     curl \
     wget \
+    openssl \
     git \
     unzip \
     xz-utils \
