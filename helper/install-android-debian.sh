@@ -47,7 +47,7 @@ apt-get install -y \
     unzip \
     xz-utils \
     zip \
-    openjdk-17-jdk-headless \
+    openjdk-21-jdk-headless \
     python3 \
     python3-pip \
     python3-venv \
