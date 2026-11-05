@@ -99,10 +99,11 @@ fi
 # Check whether release already exists
 
 TAG="v$VERSION"
+RELEASE_RESPONSE_FILE="$(mktemp)"
 
 HTTP_STATUS="$(
     curl -sS \
-        -o /dev/null \
+        -o "$RELEASE_RESPONSE_FILE" \
         -w '%{http_code}' \
         -H "Accept: application/vnd.github+json" \
         -H "Authorization: Bearer $GITHUB_TOKEN" \
@@ -111,21 +112,53 @@ HTTP_STATUS="$(
 )"
 
 if [[ "$HTTP_STATUS" == "200" ]]; then
-    echo "ERROR: GitHub release $TAG already exists."
-    exit 1
-fi
+    echo "GitHub release $TAG already exists; checking assets..."
 
-if [[ "$HTTP_STATUS" != "404" ]]; then
-    echo "ERROR: Unexpected GitHub response: HTTP $HTTP_STATUS"
-    exit 1
-fi
+    RELEASE_ID="$(
+        python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$RELEASE_RESPONSE_FILE"
+    )"
 
-# Create release
+    UPLOAD_URL="$(
+        python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upload_url"].split("{")[0])' "$RELEASE_RESPONSE_FILE"
+    )"
 
-RELEASE_BODY="$(cat "$RELEASE_NOTES")"
+    ASSETS_RESPONSE="$(
+        curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$OWNER/$REPOSITORY/releases/$RELEASE_ID/assets"
+    )"
 
-RELEASE_JSON="$(
-    python3 - "$TAG" "$VERSION" "$RELEASE_BODY" <<'PY'
+    MISSING_ARTIFACTS="$(
+        python3 - "$ASSETS_RESPONSE" "$@" <<'PY'
+import json
+import sys
+
+assets = json.loads(sys.argv[1])
+available = {asset.get('name') for asset in assets}
+for artifact in sys.argv[2:]:
+    if artifact not in available:
+        print(artifact)
+PY
+    )"
+
+    if [[ -z "$MISSING_ARTIFACTS" ]]; then
+        rm -f "$RELEASE_RESPONSE_FILE"
+        echo "All requested artifacts are already attached; skipping GitHub release."
+        exit 0
+    fi
+
+    readarray -t REQUESTED_ARTIFACTS <<< "$MISSING_ARTIFACTS"
+    set -- "${REQUESTED_ARTIFACTS[@]}"
+
+    echo "Uploading missing GitHub artifacts: $*"
+    rm -f "$RELEASE_RESPONSE_FILE"
+elif [[ "$HTTP_STATUS" == "404" ]]; then
+    RELEASE_BODY="$(cat "$RELEASE_NOTES")"
+
+    RELEASE_JSON="$(
+        python3 - "$TAG" "$VERSION" "$RELEASE_BODY" <<'PY'
 import json
 import sys
 
@@ -142,31 +175,37 @@ print(json.dumps({
     "generate_release_notes": False
 }))
 PY
-)"
+    )"
 
-RELEASE_RESPONSE="$(
-    curl -fsSL \
-        -X POST \
-        -H "Accept: application/vnd.github+json" \
-        -H "Authorization: Bearer $GITHUB_TOKEN" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        -H "Content-Type: application/json" \
-        "https://api.github.com/repos/$OWNER/$REPOSITORY/releases" \
-        -d "$RELEASE_JSON"
-)"
+    RELEASE_RESPONSE="$(
+        curl -fsSL \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/$OWNER/$REPOSITORY/releases" \
+            -d "$RELEASE_JSON"
+    )"
 
-RELEASE_ID="$(
-    printf '%s' "$RELEASE_RESPONSE" |
-    python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'
-)"
+    RELEASE_ID="$(
+        printf '%s' "$RELEASE_RESPONSE" |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'
+    )"
 
-UPLOAD_URL="$(
-    printf '%s' "$RELEASE_RESPONSE" |
-    python3 -c 'import json,sys; print(json.load(sys.stdin)["upload_url"].split("{")[0])'
-)"
+    UPLOAD_URL="$(
+        printf '%s' "$RELEASE_RESPONSE" |
+        python3 -c 'import json,sys; print(json.load(sys.stdin)["upload_url"].split("{")[0])'
+    )"
 
-echo "Created release $TAG"
-echo "Release ID: $RELEASE_ID"
+    echo "Created release $TAG"
+    echo "Release ID: $RELEASE_ID"
+    rm -f "$RELEASE_RESPONSE_FILE"
+else
+    rm -f "$RELEASE_RESPONSE_FILE"
+    echo "ERROR: Unexpected GitHub response: HTTP $HTTP_STATUS" >&2
+    exit 1
+fi
 
 # Upload artifacts
 

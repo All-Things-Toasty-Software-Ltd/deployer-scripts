@@ -113,7 +113,7 @@ elif [[ "$TAG_STATUS" != "200" ]]; then
     exit 1
 fi
 
-# Refuse to overwrite an existing release.
+# Handle an existing release without deleting or overwriting it.
 
 RELEASE_STATUS="$(
     curl -sS \
@@ -123,15 +123,46 @@ RELEASE_STATUS="$(
         "$API_BASE/releases/$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$TAG")"
 )"
 
-if [[ "$RELEASE_STATUS" == "200" ]]; then
-    echo "ERROR: GitLab release $TAG already exists." >&2
-    exit 1
-fi
+RELEASE_EXISTS=false
 
-if [[ "$RELEASE_STATUS" != "404" ]]; then
+if [[ "$RELEASE_STATUS" == "200" ]]; then
+    echo "GitLab release $TAG already exists; checking assets..."
+
+    ASSET_LINKS="$(
+        curl -fsSL \
+            -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+            "$API_BASE/releases/$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' "$TAG")/assets/links"
+    )"
+
+    MISSING_ARTIFACTS="$(
+        python3 - "$ASSET_LINKS" "$@" <<'PY'
+import json
+import sys
+
+links = json.loads(sys.argv[1])
+available = {link.get('name') for link in links}
+for artifact in sys.argv[2:]:
+    if artifact not in available:
+        print(artifact)
+PY
+    )"
+
+    if [[ -z "$MISSING_ARTIFACTS" ]]; then
+        echo "All requested artifacts are already attached; skipping GitLab release."
+        exit 0
+    fi
+
+    readarray -t REQUESTED_ARTIFACTS <<< "$MISSING_ARTIFACTS"
+    set -- "${REQUESTED_ARTIFACTS[@]}"
+
+    echo "Uploading missing GitLab artifacts: $*"
+    RELEASE_EXISTS=true
+elif [[ "$RELEASE_STATUS" != "404" ]]; then
     echo "ERROR: Unexpected release response: HTTP $RELEASE_STATUS" >&2
     exit 1
 fi
+
+if [[ "$RELEASE_EXISTS" != "true" ]]; then
 
 # Create the release.
 
@@ -169,6 +200,8 @@ RELEASE_RESPONSE="$(
 if [[ -z "$RELEASE_RESPONSE" ]]; then
     echo "ERROR: Failed to create GitLab release." >&2
     exit 1
+fi
+
 fi
 
 # Upload artifacts as generic package files, then attach them to the release.
