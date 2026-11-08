@@ -5,9 +5,9 @@ set -euo pipefail
 # Configuration
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-HELPER_DIR="$BASE_DIR/helper"
+HELPER_DIR="$BASE_DIR/helpers"
 SECRETS_DIR="/opt/toasty-deployer/secrets"
 
 OWNER="All-Things-Toasty-Software-Ltd"
